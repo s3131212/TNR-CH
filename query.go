@@ -191,194 +191,37 @@ func (graph *Graph) ShortestPathWithTNR(source int64, target int64) (float64, []
 	sourceVertex := graph.vertices[graph.mapping[source]]
 	targetVertex := graph.vertices[graph.mapping[target]]
 
-	forwardDistance := make([]float64, len(graph.vertices), len(graph.vertices))
-	backwardDistance := make([]float64, len(graph.vertices), len(graph.vertices))
-	forwardVisited := make([]bool, len(graph.vertices), len(graph.vertices))
-	backwardVisited := make([]bool, len(graph.vertices), len(graph.vertices))
-
-	for i := 0; i < len(graph.vertices); i++ {
-		forwardDistance[i] = math.MaxFloat64
-		backwardDistance[i] = math.MaxFloat64
-	}
-
-	forwardVisited[sourceVertex.id] = true
-	forwardDistance[sourceVertex.id] = 0
-	backwardVisited[targetVertex.id] = true
-	backwardDistance[targetVertex.id] = 0
-
-	forwardSearchHeap := &forwardSearchHeap{}
-	backwardSearchHeap := &backwardSearchHeap{}
-	heap.Init(forwardSearchHeap)
-	heap.Init(backwardSearchHeap)
-
-	heap.Push(forwardSearchHeap, &QueryVertex{
-		id:               sourceVertex.id,
-		forwardDistance:  0,
-		backwardDistance: 0,
-		isTransitNode:    sourceVertex.isTransitNode,
-	})
-	heap.Push(backwardSearchHeap, &QueryVertex{
-		id:               targetVertex.id,
-		forwardDistance:  0,
-		backwardDistance: 0,
-		isTransitNode:    targetVertex.isTransitNode,
-	})
-
-	forwardBacktrace := make(map[int64]int64)
-	backwardBacktrace := make(map[int64]int64)
-
-	var forwardVisitedTransitNodes []int64
-	var backwardVisitedTransitNodes []int64
-
-	isLocal := false
-
-	for forwardSearchHeap.Len() != 0 || backwardSearchHeap.Len() != 0 {
-		if forwardSearchHeap.Len() != 0 {
-			queryVertex := heap.Pop(forwardSearchHeap).(*QueryVertex)
-
-			// record the visited transit nodes
-			if queryVertex.isTransitNode && !forwardVisited[queryVertex.id] {
-				forwardVisitedTransitNodes = append(forwardVisitedTransitNodes, queryVertex.id)
-			}
-
-			forwardVisited[queryVertex.id] = true
-
-			// relax
-			if !queryVertex.isTransitNode {
-				for i := 0; i < len(graph.vertices[queryVertex.id].outwardEdges); i++ {
-					outEdge := graph.vertices[queryVertex.id].outwardEdges[i]
-					if graph.vertices[queryVertex.id].contractionOrder < outEdge.to.contractionOrder {
-						if forwardDistance[outEdge.to.id] > forwardDistance[queryVertex.id]+outEdge.weight {
-							forwardDistance[outEdge.to.id] = forwardDistance[queryVertex.id] + outEdge.weight
-							forwardBacktrace[outEdge.to.id] = queryVertex.id
-							heap.Push(forwardSearchHeap, &QueryVertex{
-								id:               outEdge.to.id,
-								forwardDistance:  forwardDistance[queryVertex.id] + outEdge.weight,
-								backwardDistance: 0,
-								isTransitNode:    outEdge.to.isTransitNode,
-							})
-						}
-					}
-				}
-			}
-
-			// check if two search merged
-			if backwardVisited[queryVertex.id] && !queryVertex.isTransitNode {
-				isLocal = true
-				break
-			}
-		}
-		if backwardSearchHeap.Len() != 0 {
-			queryVertex := heap.Pop(backwardSearchHeap).(*QueryVertex)
-
-			// record the visited transit nodes
-			if queryVertex.isTransitNode && !backwardVisited[queryVertex.id] {
-				backwardVisitedTransitNodes = append(backwardVisitedTransitNodes, queryVertex.id)
-			}
-
-			backwardVisited[queryVertex.id] = true
-
-			// relax
-			if !queryVertex.isTransitNode {
-				for i := 0; i < len(graph.vertices[queryVertex.id].inwardEdges); i++ {
-					inEdge := graph.vertices[queryVertex.id].inwardEdges[i]
-					if graph.vertices[queryVertex.id].contractionOrder < inEdge.from.contractionOrder {
-						if backwardDistance[inEdge.from.id] > backwardDistance[queryVertex.id]+inEdge.weight {
-							backwardDistance[inEdge.from.id] = backwardDistance[queryVertex.id] + inEdge.weight
-							backwardBacktrace[inEdge.from.id] = queryVertex.id
-							heap.Push(backwardSearchHeap, &QueryVertex{
-								id:               inEdge.from.id,
-								forwardDistance:  0,
-								backwardDistance: backwardDistance[queryVertex.id] + inEdge.weight,
-								isTransitNode:    inEdge.from.isTransitNode,
-							})
-						}
-					}
-				}
-			}
-
-			// check if two search merged
-			if forwardVisited[queryVertex.id] && !queryVertex.isTransitNode {
-				isLocal = true
-				break
-			}
-		}
-	}
-
-	_ = isLocal
-	// is local search, use ShortestPathWithoutTNR instead
-	if isLocal || len(forwardVisitedTransitNodes) == 0 || len(backwardVisitedTransitNodes) == 0 {
-		//fmt.Printf("local path (%d to %d) detected, use CH instead\n", source, target)
+	// check if there are access nodes
+	if len(sourceVertex.forwardAccessNodeDistance) == 0 || len(targetVertex.backwardAccessNodeDistance) == 0 {
+		//fmt.Println("fallback to CH because no access node available")
 		return -1, nil
 	}
 
-	// find the suitable access node
-	forwardVisitedTransitNodesMask := make([]bool, len(forwardVisitedTransitNodes), len(forwardVisitedTransitNodes))
-	for i := 0; i < len(forwardVisitedTransitNodes); i++ {
-		for j := 0; j < len(forwardVisitedTransitNodes); j++ {
-			if i == j {
-				continue
-			}
-			d1, _ := graph.ShortestPathWithoutTNR(sourceVertex.name, graph.vertices[forwardVisitedTransitNodes[i]].name)
-			d2, _ := graph.ShortestPathWithoutTNR(sourceVertex.name, graph.vertices[forwardVisitedTransitNodes[j]].name)
-			//fmt.Printf("deleting access node, comparing %d and %d: %f + %f <= %f\n", forwardVisitedTransitNodes[i], forwardVisitedTransitNodes[j], d1, graph.tnrDistance[forwardVisitedTransitNodes[i]][forwardVisitedTransitNodes[j]], d2)
-			if d1+graph.tnrDistance[forwardVisitedTransitNodes[i]][forwardVisitedTransitNodes[j]] <= d2 {
-				forwardVisitedTransitNodesMask[j] = true // mask j since it won't be the solution
-			}
+	// check if is local search
+	for k := range sourceVertex.forwardReachableVertex {
+		if _, ok := targetVertex.backwardReachableVertex[k]; ok {
+			//fmt.Println("fallback to CH because local search")
+			return -1, nil
 		}
 	}
-	//fmt.Printf("forwardVisitedTransitNodes for %d to %d: %v, %v\n", source, target, forwardVisitedTransitNodes, forwardVisitedTransitNodesMask)
-	sourceAccessNodes := []int64{}
-	for i := 0; i < len(forwardVisitedTransitNodes); i++ {
-		if !forwardVisitedTransitNodesMask[i] {
-			sourceAccessNodes = append(sourceAccessNodes, forwardVisitedTransitNodes[i])
-		}
-	}
-
-	backwardVisitedTransitNodesMask := make([]bool, len(backwardVisitedTransitNodes), len(backwardVisitedTransitNodes))
-	for i := 0; i < len(backwardVisitedTransitNodes); i++ {
-		for j := i + 1; j < len(backwardVisitedTransitNodes); j++ {
-			d1, _ := graph.ShortestPathWithoutTNR(graph.vertices[backwardVisitedTransitNodes[i]].name, targetVertex.name)
-			d2, _ := graph.ShortestPathWithoutTNR(graph.vertices[backwardVisitedTransitNodes[j]].name, targetVertex.name)
-			if d1+graph.tnrDistance[backwardVisitedTransitNodes[i]][backwardVisitedTransitNodes[j]] <= d2 {
-				backwardVisitedTransitNodesMask[j] = true // mask j since it won't be the solution
-			}
-		}
-	}
-	//fmt.Printf("backwardVisitedTransitNodes for %d to %d: %v, %v\n", source, target, backwardVisitedTransitNodes, backwardVisitedTransitNodesMask)
-	targetAccessNodes := []int64{}
-	for i := 0; i < len(backwardVisitedTransitNodes); i++ {
-		if !backwardVisitedTransitNodesMask[i] {
-			targetAccessNodes = append(targetAccessNodes, backwardVisitedTransitNodes[i])
-		}
-	}
-
-	//fmt.Printf("access node: %v, %v\n", sourceAccessNodes, targetAccessNodes)
-
-	if len(sourceAccessNodes) == 0 || len(targetAccessNodes) == 0 {
-		//fmt.Printf("failed to find access node for path (%d to %d), use CH instead\n", source, target)
-		return -1, nil
-	}
+	//fmt.Println("use TNR")
 
 	// compute distance and path
 	bestDistance := math.MaxFloat64
+	var bestSourceAccessNode int64
+	var bestTargetAccessNode int64
 	bestPath := []int64{}
-	for i := 0; i < len(sourceAccessNodes); i++ {
-		for j := 0; j < len(targetAccessNodes); j++ {
-			distanceFromSource, pathFromSource := graph.ShortestPathWithoutTNR(sourceVertex.name, graph.vertices[sourceAccessNodes[i]].name)
-			distanceToTarget, pathToTarget := graph.ShortestPathWithoutTNR(graph.vertices[targetAccessNodes[j]].name, targetVertex.name)
-			distanceBetweenAccessNodes := graph.tnrDistance[sourceAccessNodes[i]][targetAccessNodes[j]]
-			pathBetweenAccessNodes := graph.tnrPath[sourceAccessNodes[i]][targetAccessNodes[j]]
 
-			if bestDistance > distanceFromSource+distanceBetweenAccessNodes+distanceToTarget {
-				bestDistance = distanceFromSource + distanceBetweenAccessNodes + distanceToTarget
-				bestPath = []int64{}
-				bestPath = append(bestPath, pathFromSource[:len(pathFromSource)-1]...)
-				if sourceAccessNodes[i] != targetAccessNodes[j] {
-					bestPath = append(bestPath, pathBetweenAccessNodes[:len(pathBetweenAccessNodes)-1]...)
-				}
-				bestPath = append(bestPath, pathToTarget...)
-				//fmt.Printf("selected access node: %d, %d\n", sourceAccessNodes[i], targetAccessNodes[j])
+	for k1, d1 := range sourceVertex.forwardAccessNodeDistance {
+		for k2, d2 := range targetVertex.backwardAccessNodeDistance {
+			// two transit nodes are not reachable
+			if graph.tnrDistance[k1][k2] == -math.MaxFloat64 {
+				continue
+			}
+			if bestDistance > d1+graph.tnrDistance[k1][k2]+d2 {
+				bestDistance = d1 + graph.tnrDistance[k1][k2] + d2
+				bestSourceAccessNode = k1
+				bestTargetAccessNode = k2
 			}
 		}
 	}
@@ -386,6 +229,17 @@ func (graph *Graph) ShortestPathWithTNR(source int64, target int64) (float64, []
 	if bestDistance == math.MaxFloat64 {
 		return -math.MaxFloat64, nil
 	}
+
+	pathFromSource := sourceVertex.forwardAccessNodePath[bestSourceAccessNode]
+	pathToTarget := targetVertex.backwardAccessNodePath[bestTargetAccessNode]
+	pathBetweenAccessNodes := graph.tnrPath[bestSourceAccessNode][bestTargetAccessNode]
+
+	bestPath = []int64{}
+	bestPath = append(bestPath, pathFromSource[:len(pathFromSource)-1]...)
+	if bestSourceAccessNode != bestTargetAccessNode && len(pathBetweenAccessNodes) > 1 {
+		bestPath = append(bestPath, pathBetweenAccessNodes[:len(pathBetweenAccessNodes)-1]...)
+	}
+	bestPath = append(bestPath, pathToTarget...)
 
 	return bestDistance, bestPath
 }

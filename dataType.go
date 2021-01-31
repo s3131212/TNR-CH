@@ -14,6 +14,15 @@ type Vertex struct {
 
 	contracted    bool
 	isTransitNode bool
+
+	forwardReachableVertex  map[int64]bool
+	backwardReachableVertex map[int64]bool
+
+	forwardAccessNodeDistance  map[int64]float64
+	backwardAccessNodeDistance map[int64]float64
+
+	forwardAccessNodePath  map[int64][]int64
+	backwardAccessNodePath map[int64][]int64
 }
 
 // QueryVertex 123
