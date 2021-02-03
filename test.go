@@ -34,9 +34,9 @@ func verifyCorrectness() {
 	g := Graph{}
 	_ = g
 
-	vertexCount := 100
-	edgeCount := 250
-	tnrCount := 10
+	vertexCount := 20
+	edgeCount := 40
+	tnrCount := 4
 	for i := 0; i < vertexCount; i++ {
 		g.AddVertex(int64(i))
 		codeList = append(codeList, fmt.Sprintf("g.AddVertex(int64(%d))", i))
@@ -81,7 +81,6 @@ func verifyCorrectness() {
 			codeList = append(codeList, fmt.Sprintf("g.AddEdge(%d, %d, %f)", b, a, d))
 		}
 	*/
-
 	g.ComputeContractions()
 	g.ComputeTNR(tnrCount)
 
@@ -187,10 +186,10 @@ func Benchmark() {
 	g := Graph{}
 	_ = g
 
-	vertexCount := 6000
-	edgeCount := 14000
+	vertexCount := 10000
+	edgeCount := 25000
 	tryCount := 1000
-	tnrCount := 100
+	tnrCount := 50
 	for i := 0; i < vertexCount; i++ {
 		g.AddVertex(int64(i))
 	}
@@ -207,6 +206,22 @@ func Benchmark() {
 		hasEdge[b*10000+a] = true
 		g.AddEdge(a, b, c)
 		g.AddEdge(b, a, c)
+	}
+
+	for i := 0; i < vertexCount-1; i++ {
+		a := int64(i)
+		b := int64(i + 1)
+		c := float64(randomList[randomListCounter])
+		randomListCounter++
+		d := float64(randomList[randomListCounter])
+		randomListCounter++
+		if hasEdge[a*10000+b] {
+			continue
+		}
+		hasEdge[a*10000+b] = true
+		hasEdge[b*10000+a] = true
+		g.AddEdge(a, b, c)
+		g.AddEdge(b, a, d)
 	}
 
 	tryPath := make([][]int64, 0)

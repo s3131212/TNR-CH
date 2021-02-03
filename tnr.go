@@ -57,155 +57,186 @@ func (graph *Graph) ComputeTNR(transitCnt int) {
 		}
 	}
 
-	// Preprocess forward search
+	contractionMaxHeap := &contractionMaxHeap{}
+	heap.Init(contractionMaxHeap)
 	for v := 0; v < len(graph.vertices); v++ {
-		sourceVertex := graph.vertices[v]
-		if sourceVertex.forwardReachableVertex == nil {
+		graph.vertices[v].forwardReachableVertex = nil
+		graph.vertices[v].forwardAccessNodeDistance = nil
+		graph.vertices[v].forwardAccessNodePath = nil
+		graph.vertices[v].forwardTNRed = false
+		graph.vertices[v].backwardReachableVertex = nil
+		graph.vertices[v].backwardAccessNodeDistance = nil
+		graph.vertices[v].backwardAccessNodePath = nil
+		graph.vertices[v].backwardTNRed = false
+
+		heap.Push(contractionMaxHeap, graph.vertices[v])
+	}
+
+	for contractionMaxHeap.Len() != 0 {
+		sourceVertex := heap.Pop(contractionMaxHeap).(*Vertex)
+		if !sourceVertex.forwardTNRed {
+			//fmt.Printf("forward TNR vertex %d\n", sourceVertex.id)
 			sourceVertex.forwardReachableVertex = make(map[int64]bool)
-		}
-		if sourceVertex.forwardAccessNodeDistance == nil {
 			sourceVertex.forwardAccessNodeDistance = make(map[int64]float64)
-		}
-		if sourceVertex.forwardAccessNodePath == nil {
 			sourceVertex.forwardAccessNodePath = make(map[int64][]int64)
-		}
 
-		// find access node
-		searchHeap := &forwardSearchHeap{}
-		heap.Init(searchHeap)
-		heap.Push(searchHeap, &QueryVertex{
-			id:               sourceVertex.id,
-			forwardDistance:  0,
-			backwardDistance: 0,
-			isTransitNode:    sourceVertex.isTransitNode,
-		})
+			// find access node
+			searchHeap := &forwardSearchHeap{}
+			heap.Init(searchHeap)
+			heap.Push(searchHeap, &QueryVertex{
+				id:               sourceVertex.id,
+				forwardDistance:  0,
+				backwardDistance: 0,
+				isTransitNode:    sourceVertex.isTransitNode,
+			})
 
-		distance := make([]float64, len(graph.vertices), len(graph.vertices))
-		for i := 0; i < len(graph.vertices); i++ {
-			distance[i] = math.MaxFloat64
-		}
-		distance[sourceVertex.id] = 0
+			distance := make([]float64, len(graph.vertices), len(graph.vertices))
+			for i := 0; i < len(graph.vertices); i++ {
+				distance[i] = math.MaxFloat64
+			}
+			distance[sourceVertex.id] = 0
 
-		for searchHeap.Len() != 0 {
-			queryVertex := heap.Pop(searchHeap).(*QueryVertex)
+			for searchHeap.Len() != 0 {
+				queryVertex := heap.Pop(searchHeap).(*QueryVertex)
 
-			// relax
-			if !queryVertex.isTransitNode {
-				sourceVertex.forwardReachableVertex[queryVertex.id] = true
-				for i := 0; i < len(graph.vertices[queryVertex.id].outwardEdges); i++ {
-					outEdge := graph.vertices[queryVertex.id].outwardEdges[i]
-					if graph.vertices[queryVertex.id].contractionOrder < outEdge.to.contractionOrder {
-						if distance[outEdge.to.id] > distance[queryVertex.id]+outEdge.weight {
-							distance[outEdge.to.id] = distance[queryVertex.id] + outEdge.weight
-							heap.Push(searchHeap, &QueryVertex{
-								id:               outEdge.to.id,
-								forwardDistance:  distance[queryVertex.id] + outEdge.weight,
-								backwardDistance: 0,
-								isTransitNode:    outEdge.to.isTransitNode,
-							})
+				// relax
+				if !queryVertex.isTransitNode {
+					sourceVertex.forwardReachableVertex[queryVertex.id] = true
+
+					// check if visited this node
+					if graph.vertices[queryVertex.id].forwardTNRed {
+						//fmt.Printf("met forward-TNRed vertex %d\n", queryVertex.id)
+						for k := range graph.vertices[queryVertex.id].forwardReachableVertex {
+							sourceVertex.forwardReachableVertex[k] = true
+						}
+						for k := range graph.vertices[queryVertex.id].forwardAccessNodeDistance {
+							sourceVertex.forwardAccessNodeDistance[k] = -1
+						}
+					} else {
+						for i := 0; i < len(graph.vertices[queryVertex.id].outwardEdges); i++ {
+							outEdge := graph.vertices[queryVertex.id].outwardEdges[i]
+							if graph.vertices[queryVertex.id].contractionOrder < outEdge.to.contractionOrder {
+								if distance[outEdge.to.id] > distance[queryVertex.id]+outEdge.weight {
+									distance[outEdge.to.id] = distance[queryVertex.id] + outEdge.weight
+									heap.Push(searchHeap, &QueryVertex{
+										id:               outEdge.to.id,
+										forwardDistance:  distance[queryVertex.id] + outEdge.weight,
+										backwardDistance: 0,
+										isTransitNode:    outEdge.to.isTransitNode,
+									})
+								}
+							}
 						}
 					}
-				}
-			} else {
-				sourceVertex.forwardAccessNodeDistance[queryVertex.id] = -1
-			}
-		}
-
-		for k := range sourceVertex.forwardAccessNodeDistance {
-			sourceVertex.forwardAccessNodeDistance[k], sourceVertex.forwardAccessNodePath[k] = graph.ShortestPathWithoutTNR(sourceVertex.name, graph.vertices[k].name)
-		}
-
-		// delete invalid access node
-		accessNodeMask := make(map[int64]bool)
-		for k1, d1 := range sourceVertex.forwardAccessNodeDistance {
-			for k2, d2 := range sourceVertex.forwardAccessNodeDistance {
-				if k1 == k2 {
-					continue
-				}
-				if d1+graph.tnrDistance[k1][k2] <= d2 {
-					accessNodeMask[k2] = true // mask j since it won't be the solution
+				} else {
+					sourceVertex.forwardAccessNodeDistance[queryVertex.id] = -1
 				}
 			}
-		}
-		for k := range accessNodeMask {
-			delete(sourceVertex.forwardAccessNodeDistance, k)
-			delete(sourceVertex.forwardAccessNodePath, k)
-		}
-	}
 
-	// Preprocess backward search
-	for v := 0; v < len(graph.vertices); v++ {
-		sourceVertex := graph.vertices[v]
-		if sourceVertex.backwardReachableVertex == nil {
+			for k := range sourceVertex.forwardAccessNodeDistance {
+				sourceVertex.forwardAccessNodeDistance[k], sourceVertex.forwardAccessNodePath[k] = graph.ShortestPathWithoutTNR(sourceVertex.name, graph.vertices[k].name)
+			}
+
+			// delete invalid access node
+			accessNodeMask := make(map[int64]bool)
+			for k1, d1 := range sourceVertex.forwardAccessNodeDistance {
+				for k2, d2 := range sourceVertex.forwardAccessNodeDistance {
+					if k1 == k2 {
+						continue
+					}
+					if d1+graph.tnrDistance[k1][k2] <= d2 {
+						accessNodeMask[k2] = true // mask j since it won't be the solution
+					}
+				}
+			}
+			for k := range accessNodeMask {
+				delete(sourceVertex.forwardAccessNodeDistance, k)
+				delete(sourceVertex.forwardAccessNodePath, k)
+			}
+			sourceVertex.forwardTNRed = true
+		}
+
+		if !sourceVertex.backwardTNRed {
+			//fmt.Printf("backward TNR vertex %d\n", sourceVertex.id)
 			sourceVertex.backwardReachableVertex = make(map[int64]bool)
-		}
-		if sourceVertex.backwardAccessNodeDistance == nil {
 			sourceVertex.backwardAccessNodeDistance = make(map[int64]float64)
-		}
-		if sourceVertex.backwardAccessNodePath == nil {
 			sourceVertex.backwardAccessNodePath = make(map[int64][]int64)
-		}
 
-		// find access node
-		searchHeap := &backwardSearchHeap{}
-		heap.Init(searchHeap)
-		heap.Push(searchHeap, &QueryVertex{
-			id:               sourceVertex.id,
-			forwardDistance:  0,
-			backwardDistance: 0,
-			isTransitNode:    sourceVertex.isTransitNode,
-		})
+			// find access node
+			searchHeap := &backwardSearchHeap{}
+			heap.Init(searchHeap)
+			heap.Push(searchHeap, &QueryVertex{
+				id:               sourceVertex.id,
+				forwardDistance:  0,
+				backwardDistance: 0,
+				isTransitNode:    sourceVertex.isTransitNode,
+			})
 
-		distance := make([]float64, len(graph.vertices), len(graph.vertices))
-		for i := 0; i < len(graph.vertices); i++ {
-			distance[i] = math.MaxFloat64
-		}
-		distance[sourceVertex.id] = 0
+			distance := make([]float64, len(graph.vertices), len(graph.vertices))
+			for i := 0; i < len(graph.vertices); i++ {
+				distance[i] = math.MaxFloat64
+			}
+			distance[sourceVertex.id] = 0
 
-		for searchHeap.Len() != 0 {
-			queryVertex := heap.Pop(searchHeap).(*QueryVertex)
+			for searchHeap.Len() != 0 {
+				queryVertex := heap.Pop(searchHeap).(*QueryVertex)
 
-			// relax
-			if !queryVertex.isTransitNode {
-				sourceVertex.backwardReachableVertex[queryVertex.id] = true
-				for i := 0; i < len(graph.vertices[queryVertex.id].inwardEdges); i++ {
-					inEdge := graph.vertices[queryVertex.id].inwardEdges[i]
-					if graph.vertices[queryVertex.id].contractionOrder < inEdge.from.contractionOrder {
-						if distance[inEdge.from.id] > distance[queryVertex.id]+inEdge.weight {
-							distance[inEdge.from.id] = distance[queryVertex.id] + inEdge.weight
-							heap.Push(searchHeap, &QueryVertex{
-								id:               inEdge.from.id,
-								forwardDistance:  0,
-								backwardDistance: distance[queryVertex.id] + inEdge.weight,
-								isTransitNode:    inEdge.from.isTransitNode,
-							})
+				// relax
+				if !queryVertex.isTransitNode {
+					sourceVertex.backwardReachableVertex[queryVertex.id] = true
+
+					// check if visited this node
+					if graph.vertices[queryVertex.id].backwardTNRed {
+						//fmt.Printf("met backward-TNRed vertex %d\n", queryVertex.id)
+						for k := range graph.vertices[queryVertex.id].backwardReachableVertex {
+							sourceVertex.backwardReachableVertex[k] = true
+						}
+						for k := range graph.vertices[queryVertex.id].backwardAccessNodeDistance {
+							sourceVertex.backwardAccessNodeDistance[k] = -1
+						}
+					} else {
+						for i := 0; i < len(graph.vertices[queryVertex.id].inwardEdges); i++ {
+							inEdge := graph.vertices[queryVertex.id].inwardEdges[i]
+							if graph.vertices[queryVertex.id].contractionOrder < inEdge.from.contractionOrder {
+								if distance[inEdge.from.id] > distance[queryVertex.id]+inEdge.weight {
+									distance[inEdge.from.id] = distance[queryVertex.id] + inEdge.weight
+									heap.Push(searchHeap, &QueryVertex{
+										id:               inEdge.from.id,
+										forwardDistance:  0,
+										backwardDistance: distance[queryVertex.id] + inEdge.weight,
+										isTransitNode:    inEdge.from.isTransitNode,
+									})
+								}
+							}
 						}
 					}
+				} else {
+					sourceVertex.backwardAccessNodeDistance[queryVertex.id] = -1
 				}
-			} else {
-				sourceVertex.backwardAccessNodeDistance[queryVertex.id] = -1
 			}
-		}
-		for k := range sourceVertex.backwardAccessNodeDistance {
-			sourceVertex.backwardAccessNodeDistance[k], sourceVertex.backwardAccessNodePath[k] = graph.ShortestPathWithoutTNR(graph.vertices[k].name, sourceVertex.name)
-		}
+			for k := range sourceVertex.backwardAccessNodeDistance {
+				sourceVertex.backwardAccessNodeDistance[k], sourceVertex.backwardAccessNodePath[k] = graph.ShortestPathWithoutTNR(graph.vertices[k].name, sourceVertex.name)
+			}
 
-		// delete invalid access node
-		accessNodeMask := make(map[int64]bool)
-		for k1, d1 := range sourceVertex.backwardAccessNodeDistance {
-			for k2, d2 := range sourceVertex.backwardAccessNodeDistance {
-				if k1 == k2 {
-					continue
-				}
-				if d1+graph.tnrDistance[k2][k1] <= d2 {
-					accessNodeMask[k2] = true // mask j since it won't be the solution
+			// delete invalid access node
+			accessNodeMask := make(map[int64]bool)
+			for k1, d1 := range sourceVertex.backwardAccessNodeDistance {
+				for k2, d2 := range sourceVertex.backwardAccessNodeDistance {
+					if k1 == k2 {
+						continue
+					}
+					if d1+graph.tnrDistance[k2][k1] <= d2 {
+						accessNodeMask[k2] = true // mask j since it won't be the solution
+					}
 				}
 			}
+			for k := range accessNodeMask {
+				delete(sourceVertex.backwardAccessNodeDistance, k)
+				delete(sourceVertex.backwardAccessNodePath, k)
+			}
 		}
-		for k := range accessNodeMask {
-			delete(sourceVertex.backwardAccessNodeDistance, k)
-			delete(sourceVertex.backwardAccessNodePath, k)
-		}
+		sourceVertex.backwardTNRed = true
 	}
+
 	graph.TNRed = true
 }

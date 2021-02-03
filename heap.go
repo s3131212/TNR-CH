@@ -37,6 +37,14 @@ func (h distanceHeap) Less(i int, j int) bool {
 	return h.minHeap[i].distance.distance < h.minHeap[j].distance.distance
 }
 
+type contractionMaxHeap struct {
+	minHeap
+}
+
+func (h contractionMaxHeap) Less(i int, j int) bool {
+	return h.minHeap[i].contractionOrder > h.minHeap[j].contractionOrder
+}
+
 type minHeapQ []*QueryVertex
 
 func (h minHeapQ) Len() int {

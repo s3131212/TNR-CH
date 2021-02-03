@@ -23,6 +23,9 @@ type Vertex struct {
 
 	forwardAccessNodePath  map[int64][]int64
 	backwardAccessNodePath map[int64][]int64
+
+	forwardTNRed  bool
+	backwardTNRed bool
 }
 
 // QueryVertex 123
