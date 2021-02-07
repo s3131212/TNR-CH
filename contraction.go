@@ -4,7 +4,7 @@ import (
 	"container/heap"
 )
 
-// ComputeContractions 123
+// ComputeContractions Compute the Contraction Hierarchies.
 func (graph *Graph) ComputeContractions() {
 	if graph.contracted {
 		return
@@ -33,7 +33,7 @@ func (graph *Graph) ComputeContractions() {
 	graph.contracted = true
 }
 
-// contractVertex 123
+// contractVertex Contract each vertex.
 func (graph *Graph) contractVertex(vertex *Vertex, contractID int64) {
 	vertex.contracted = true
 
@@ -89,6 +89,7 @@ func (graph *Graph) contractVertex(vertex *Vertex, contractID int64) {
 	}
 }
 
+// relaxEdges Relax the edges by adding shortcuts.
 func (graph *Graph) relaxEdges(source *Vertex, maxCost float64, contractID int64, sourceID int64) {
 	distanceHeap := &distanceHeap{}
 	heap.Init(distanceHeap)
@@ -122,7 +123,7 @@ func (graph *Graph) relaxEdges(source *Vertex, maxCost float64, contractID int64
 	}
 }
 
-// computeImportance 123
+// computeImportance Generate the min-heap of vertices, sorted by the importance.
 func (graph *Graph) computeImportance() *importanceHeap {
 	importanceHeap := &importanceHeap{}
 	heap.Init(importanceHeap)

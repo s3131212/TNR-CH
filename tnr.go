@@ -6,25 +6,31 @@ import (
 	"math"
 )
 
-// ComputeTNR 123
+// ComputeTNR Compute Transit Node Routing
 func (graph *Graph) ComputeTNR(transitCnt int) {
-	if graph.TNRed || !graph.contracted {
-		fmt.Println("Not contracted or is TNRed")
+	if !graph.contracted {
+		fmt.Println("The graph has not contracted, run ComputeContractions first.")
 		return
 	}
-	vertexCnt := len(graph.vertices)
-	if vertexCnt < transitCnt {
+	if graph.TNRed {
+		fmt.Println("The graph has already calculated the TNR.")
+		return
+	}
+	if len(graph.vertices) < transitCnt {
 		fmt.Println("Too many transit nodes")
 		return
 	}
 
-	if graph.tnrDistance == nil {
-		graph.tnrDistance = make(map[int64]map[int64]float64)
-	}
-	if graph.tnrPath == nil {
-		graph.tnrPath = make(map[int64]map[int64][]int64)
-	}
+	graph.SelectTransitNodes(transitCnt)
+	graph.ComputeDistanceTable(transitCnt)
+	graph.ComputeLocalFilter()
 
+	graph.TNRed = true
+}
+
+// SelectTransitNodes Select the Transit Nodes by contraction orders
+func (graph *Graph) SelectTransitNodes(transitCnt int) {
+	vertexCnt := len(graph.vertices)
 	for i := 0; i < vertexCnt; i++ {
 		//fmt.Printf("id: %d, contractionOrder: %d\n", graph.vertices[i].id, graph.vertices[i].contractionOrder)
 		if graph.vertices[i].contractionOrder >= vertexCnt-transitCnt {
@@ -33,6 +39,18 @@ func (graph *Graph) ComputeTNR(transitCnt int) {
 			//fmt.Printf("select transit %d\n", graph.vertices[i].id)
 		}
 	}
+}
+
+// ComputeDistanceTable Select the transit nodes and compute the Distance Table
+func (graph *Graph) ComputeDistanceTable(transitCnt int) {
+
+	if graph.tnrDistance == nil {
+		graph.tnrDistance = make(map[int64]map[int64]float64)
+	}
+	if graph.tnrPath == nil {
+		graph.tnrPath = make(map[int64]map[int64][]int64)
+	}
+
 	for i := 0; i < transitCnt; i++ {
 		for j := 0; j < transitCnt; j++ {
 			if _, ok := graph.tnrDistance[graph.transitNodes[i].id]; !ok {
@@ -56,7 +74,10 @@ func (graph *Graph) ComputeTNR(transitCnt int) {
 			//fmt.Printf("between transit nodes %d and %d: %f, %v\n", graph.transitNodes[i].id, graph.transitNodes[j].id, distance, path)
 		}
 	}
+}
 
+// ComputeLocalFilter Calculate the local filter (access nodes + sub-transit-node sets)
+func (graph *Graph) ComputeLocalFilter() {
 	contractionMaxHeap := &contractionMaxHeap{}
 	heap.Init(contractionMaxHeap)
 	for v := 0; v < len(graph.vertices); v++ {
@@ -237,6 +258,4 @@ func (graph *Graph) ComputeTNR(transitCnt int) {
 		}
 		sourceVertex.backwardTNRed = true
 	}
-
-	graph.TNRed = true
 }

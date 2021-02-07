@@ -21,6 +21,7 @@ func max(a, b int64) int64 {
 	return b
 }
 
+// verifyCorrectness Verify the correctness of CH and TNR, comparing with the naive Dijkstra's algorithm.
 func verifyCorrectness() {
 	rand.Seed(time.Now().UnixNano())
 	randomList := rand.Perm(100000)
@@ -175,7 +176,7 @@ func verifyCorrectness() {
 	}
 }
 
-// Benchmark 123
+// Benchmark Benchmark the performance of CH and TNR.
 func Benchmark() {
 	rand.Seed(time.Now().UnixNano())
 	randomList := rand.Perm(100000)
@@ -242,6 +243,7 @@ func Benchmark() {
 	TestTNR(&g, tryPath)
 }
 
+// elapsed Benchmark helper
 func elapsed(what string) func() {
 	start := time.Now()
 	return func() {
@@ -249,7 +251,7 @@ func elapsed(what string) func() {
 	}
 }
 
-// TestDijkstra 123
+// TestDijkstra Benchmark Dijkstra
 func TestDijkstra(g *Graph, tryPath [][]int64) {
 	defer elapsed("Query using Dijkstra")()
 	for i := 0; i < len(tryPath); i++ {
@@ -257,7 +259,7 @@ func TestDijkstra(g *Graph, tryPath [][]int64) {
 	}
 }
 
-// TestCH 123
+// TestCH Benchmark Contraction Hierarchies
 func TestCH(g *Graph, tryPath [][]int64) {
 	defer elapsed("Query using Contraction Hierarchies")()
 	for i := 0; i < len(tryPath); i++ {
@@ -266,7 +268,7 @@ func TestCH(g *Graph, tryPath [][]int64) {
 	}
 }
 
-// TestTNR 123
+// TestTNR Benchmark Transit Node Routing
 func TestTNR(g *Graph, tryPath [][]int64) {
 	defer elapsed("Query using TNR")()
 	for i := 0; i < len(tryPath); i++ {
@@ -275,13 +277,13 @@ func TestTNR(g *Graph, tryPath [][]int64) {
 	}
 }
 
-// ComputeContractions 123
+// ComputeContractions Benchmark ComputeContractions
 func ComputeContractions(g *Graph) {
 	defer elapsed("Compute Contraction Hierarchies")()
 	g.ComputeContractions()
 }
 
-// ComputeTNR 123
+// ComputeTNR Benchmark ComputeTNR
 func ComputeTNR(g *Graph, n int) {
 	defer elapsed("Compute TNR")()
 	g.ComputeTNR(n)

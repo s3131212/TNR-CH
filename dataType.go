@@ -1,6 +1,6 @@
 package main
 
-// Vertex 123
+// Vertex the vertex / node on the graph.
 type Vertex struct {
 	name int64
 	id   int64
@@ -28,7 +28,7 @@ type Vertex struct {
 	backwardTNRed bool
 }
 
-// QueryVertex 123
+// QueryVertex a temporary and simplified vertex data structure, only for using heaps.
 type QueryVertex struct {
 	id               int64
 	isTransitNode    bool
@@ -36,7 +36,7 @@ type QueryVertex struct {
 	backwardDistance float64
 }
 
-// Distance 123
+// Distance the (current) optimal distance of a vertex.
 type Distance struct {
 	distance         float64
 	contractID       int64
@@ -45,7 +45,7 @@ type Distance struct {
 	backwardDistance float64
 }
 
-// Edge 123
+// Edge the edge / road on the graph.
 type Edge struct {
 	id         int64
 	from       *Vertex
@@ -54,7 +54,7 @@ type Edge struct {
 	isShortcut bool
 }
 
-// Graph 123
+// Graph the graph / road network.
 type Graph struct {
 	vertices []*Vertex
 	heap     *minHeap
