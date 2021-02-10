@@ -23,6 +23,7 @@ func (graph *Graph) ComputeTNR(transitCnt int) {
 
 	graph.SelectTransitNodes(transitCnt)
 	graph.ComputeDistanceTable(transitCnt)
+	graph.ComputeVoronoiRegion()
 	graph.ComputeLocalFilter()
 
 	graph.TNRed = true
@@ -36,7 +37,7 @@ func (graph *Graph) SelectTransitNodes(transitCnt int) {
 		if graph.vertices[i].contractionOrder >= vertexCnt-transitCnt {
 			graph.vertices[i].isTransitNode = true
 			graph.transitNodes = append(graph.transitNodes, graph.vertices[i])
-			//fmt.Printf("select transit %d\n", graph.vertices[i].id)
+			// fmt.Printf("select transit %d\n", graph.vertices[i].id)
 		}
 	}
 }
@@ -76,16 +77,58 @@ func (graph *Graph) ComputeDistanceTable(transitCnt int) {
 	}
 }
 
+// ComputeVoronoiRegion 123
+func (graph *Graph) ComputeVoronoiRegion() {
+	for i := 0; i < len(graph.vertices); i++ {
+		graph.vertices[i].distance.distance = math.MaxFloat64
+		graph.vertices[i].voronoiRegionID = -1
+	}
+
+	distanceHeap := &distanceHeap{}
+	visited := make(map[int64]bool)
+
+	heap.Init(distanceHeap)
+	for i := 0; i < len(graph.transitNodes); i++ {
+		graph.transitNodes[i].distance.distance = 0
+		graph.transitNodes[i].voronoiRegionID = graph.transitNodes[i].id
+		heap.Push(distanceHeap, graph.transitNodes[i])
+	}
+
+	for distanceHeap.Len() != 0 {
+		vertex := heap.Pop(distanceHeap).(*Vertex)
+
+		if visited[vertex.id] {
+			continue
+		}
+		visited[vertex.id] = true
+
+		for i := 0; i < len(vertex.inwardEdges); i++ {
+			if !vertex.inwardEdges[i].isShortcut {
+				if vertex.distance.distance+vertex.inwardEdges[i].weight < vertex.inwardEdges[i].from.distance.distance {
+					vertex.inwardEdges[i].from.distance.distance = vertex.distance.distance + vertex.inwardEdges[i].weight
+					heap.Push(distanceHeap, vertex.inwardEdges[i].from)
+					vertex.inwardEdges[i].from.voronoiRegionID = vertex.voronoiRegionID
+				}
+			}
+		}
+	}
+	/*
+		for i := 0; i < len(graph.vertices); i++ {
+			fmt.Printf("vertex %d is assigned to voronoi region %d\n", graph.vertices[i].id, graph.vertices[i].voronoiRegionID)
+		}
+	*/
+}
+
 // ComputeLocalFilter Calculate the local filter (access nodes + sub-transit-node sets)
 func (graph *Graph) ComputeLocalFilter() {
 	contractionMaxHeap := &contractionMaxHeap{}
 	heap.Init(contractionMaxHeap)
 	for v := 0; v < len(graph.vertices); v++ {
-		graph.vertices[v].forwardReachableVertex = nil
+		graph.vertices[v].forwardSearchSpace = nil
 		graph.vertices[v].forwardAccessNodeDistance = nil
 		graph.vertices[v].forwardAccessNodePath = nil
 		graph.vertices[v].forwardTNRed = false
-		graph.vertices[v].backwardReachableVertex = nil
+		graph.vertices[v].backwardSearchSpace = nil
 		graph.vertices[v].backwardAccessNodeDistance = nil
 		graph.vertices[v].backwardAccessNodePath = nil
 		graph.vertices[v].backwardTNRed = false
@@ -97,7 +140,7 @@ func (graph *Graph) ComputeLocalFilter() {
 		sourceVertex := heap.Pop(contractionMaxHeap).(*Vertex)
 		if !sourceVertex.forwardTNRed {
 			//fmt.Printf("forward TNR vertex %d\n", sourceVertex.id)
-			sourceVertex.forwardReachableVertex = make(map[int64]bool)
+			sourceVertex.forwardSearchSpace = make(map[int64]bool)
 			sourceVertex.forwardAccessNodeDistance = make(map[int64]float64)
 			sourceVertex.forwardAccessNodePath = make(map[int64][]int64)
 
@@ -122,13 +165,13 @@ func (graph *Graph) ComputeLocalFilter() {
 
 				// relax
 				if !queryVertex.isTransitNode {
-					sourceVertex.forwardReachableVertex[queryVertex.id] = true
+					sourceVertex.forwardSearchSpace[graph.vertices[queryVertex.id].voronoiRegionID] = true
 
 					// check if visited this node
 					if graph.vertices[queryVertex.id].forwardTNRed {
 						//fmt.Printf("met forward-TNRed vertex %d\n", queryVertex.id)
-						for k := range graph.vertices[queryVertex.id].forwardReachableVertex {
-							sourceVertex.forwardReachableVertex[k] = true
+						for k := range graph.vertices[queryVertex.id].forwardSearchSpace {
+							sourceVertex.forwardSearchSpace[k] = true
 						}
 						for k := range graph.vertices[queryVertex.id].forwardAccessNodeDistance {
 							sourceVertex.forwardAccessNodeDistance[k] = -1
@@ -179,7 +222,7 @@ func (graph *Graph) ComputeLocalFilter() {
 
 		if !sourceVertex.backwardTNRed {
 			//fmt.Printf("backward TNR vertex %d\n", sourceVertex.id)
-			sourceVertex.backwardReachableVertex = make(map[int64]bool)
+			sourceVertex.backwardSearchSpace = make(map[int64]bool)
 			sourceVertex.backwardAccessNodeDistance = make(map[int64]float64)
 			sourceVertex.backwardAccessNodePath = make(map[int64][]int64)
 
@@ -204,13 +247,13 @@ func (graph *Graph) ComputeLocalFilter() {
 
 				// relax
 				if !queryVertex.isTransitNode {
-					sourceVertex.backwardReachableVertex[queryVertex.id] = true
+					sourceVertex.backwardSearchSpace[graph.vertices[queryVertex.id].voronoiRegionID] = true
 
 					// check if visited this node
 					if graph.vertices[queryVertex.id].backwardTNRed {
 						//fmt.Printf("met backward-TNRed vertex %d\n", queryVertex.id)
-						for k := range graph.vertices[queryVertex.id].backwardReachableVertex {
-							sourceVertex.backwardReachableVertex[k] = true
+						for k := range graph.vertices[queryVertex.id].backwardSearchSpace {
+							sourceVertex.backwardSearchSpace[k] = true
 						}
 						for k := range graph.vertices[queryVertex.id].backwardAccessNodeDistance {
 							sourceVertex.backwardAccessNodeDistance[k] = -1

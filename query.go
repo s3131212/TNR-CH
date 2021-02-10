@@ -198,8 +198,8 @@ func (graph *Graph) ShortestPathWithTNR(source int64, target int64) (float64, []
 	}
 
 	// check if is local search
-	for k := range sourceVertex.forwardReachableVertex {
-		if _, ok := targetVertex.backwardReachableVertex[k]; ok {
+	for k := range sourceVertex.forwardSearchSpace {
+		if _, ok := targetVertex.backwardSearchSpace[k]; ok {
 			//fmt.Println("fallback to CH because local search")
 			return -1, nil
 		}

@@ -15,8 +15,9 @@ type Vertex struct {
 	contracted    bool
 	isTransitNode bool
 
-	forwardReachableVertex  map[int64]bool
-	backwardReachableVertex map[int64]bool
+	voronoiRegionID     int64
+	forwardSearchSpace  map[int64]bool
+	backwardSearchSpace map[int64]bool
 
 	forwardAccessNodeDistance  map[int64]float64
 	backwardAccessNodeDistance map[int64]float64

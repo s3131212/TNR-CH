@@ -28,6 +28,10 @@ func (graph *Graph) ComputeContractions() {
 		graph.contractVertex(vertex, int64(orderCounter))
 
 		orderCounter = orderCounter + 1
+
+		if importanceHeap.Len()%1000 == 0 {
+			//fmt.Printf("Contraction Order: %d / %d, Remain vertices in heap: %d\n", orderCounter, len(graph.vertices), importanceHeap.Len())
+		}
 	}
 
 	graph.contracted = true
