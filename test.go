@@ -1,10 +1,15 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"log"
 	"math"
 	"math/rand"
+	"os"
 	"reflect"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -21,8 +26,8 @@ func max(a, b int64) int64 {
 	return b
 }
 
-// verifyCorrectness Verify the correctness of CH and TNR, comparing with the naive Dijkstra's algorithm.
-func verifyCorrectness() {
+// TestCorrectness Verify the correctness of CH and TNR, comparing with the naive Dijkstra's algorithm.
+func TestCorrectness() {
 	rand.Seed(time.Now().UnixNano())
 	randomList := rand.Perm(100000)
 	randomListCounter := 0
@@ -35,9 +40,9 @@ func verifyCorrectness() {
 	g := Graph{}
 	_ = g
 
-	vertexCount := 20
-	edgeCount := 40
-	tnrCount := 4
+	vertexCount := 100
+	edgeCount := 200
+	tnrCount := 10
 	for i := 0; i < vertexCount; i++ {
 		g.AddVertex(int64(i))
 		codeList = append(codeList, fmt.Sprintf("g.AddVertex(int64(%d))", i))
@@ -63,25 +68,25 @@ func verifyCorrectness() {
 	}
 
 	// make sure the graph is connected
-	/*
-		for i := 0; i < vertexCount-1; i++ {
-			a := int64(i)
-			b := int64(i + 1)
-			c := float64(randomList[randomListCounter])
-			randomListCounter++
-			d := float64(randomList[randomListCounter])
-			randomListCounter++
-			if hasEdge[a*10000+b] {
-				continue
-			}
-			hasEdge[a*10000+b] = true
-			hasEdge[b*10000+a] = true
-			g.AddEdge(a, b, c)
-			g.AddEdge(b, a, d)
-			codeList = append(codeList, fmt.Sprintf("g.AddEdge(%d, %d, %f)", a, b, c))
-			codeList = append(codeList, fmt.Sprintf("g.AddEdge(%d, %d, %f)", b, a, d))
+
+	for i := 0; i < vertexCount-1; i++ {
+		a := int64(i)
+		b := int64(i + 1)
+		c := float64(randomList[randomListCounter])
+		randomListCounter++
+		d := float64(randomList[randomListCounter])
+		randomListCounter++
+		if hasEdge[a*10000+b] {
+			continue
 		}
-	*/
+		hasEdge[a*10000+b] = true
+		hasEdge[b*10000+a] = true
+		g.AddEdge(a, b, c)
+		g.AddEdge(b, a, d)
+		codeList = append(codeList, fmt.Sprintf("g.AddEdge(%d, %d, %f)", a, b, c))
+		codeList = append(codeList, fmt.Sprintf("g.AddEdge(%d, %d, %f)", b, a, d))
+	}
+
 	g.ComputeContractions()
 	g.ComputeTNR(tnrCount)
 
@@ -179,7 +184,7 @@ func verifyCorrectness() {
 // Benchmark Benchmark the performance of CH and TNR.
 func Benchmark() {
 	rand.Seed(time.Now().UnixNano())
-	randomList := rand.Perm(100000)
+	randomList := rand.Perm(10000000)
 	randomListCounter := 0
 
 	hasEdge := make(map[int64]bool)
@@ -187,10 +192,10 @@ func Benchmark() {
 	g := Graph{}
 	_ = g
 
-	vertexCount := 10000
-	edgeCount := 25000
-	tryCount := 1000
-	tnrCount := 50
+	vertexCount := 100000
+	edgeCount := 150000
+	tryCount := 3000
+	tnrCount := 500
 	for i := 0; i < vertexCount; i++ {
 		g.AddVertex(int64(i))
 	}
@@ -200,11 +205,11 @@ func Benchmark() {
 		b := min(max(int64(0), a+(int64(rand.Intn(100))%10-5)), int64(vertexCount-1))
 		c := float64(randomList[randomListCounter])
 		randomListCounter++
-		if hasEdge[a*10000+b] {
+		if hasEdge[a*1000000+b] {
 			continue
 		}
-		hasEdge[a*10000+b] = true
-		hasEdge[b*10000+a] = true
+		hasEdge[a*1000000+b] = true
+		hasEdge[b*1000000+a] = true
 		g.AddEdge(a, b, c)
 		g.AddEdge(b, a, c)
 	}
@@ -216,16 +221,87 @@ func Benchmark() {
 		randomListCounter++
 		d := float64(randomList[randomListCounter])
 		randomListCounter++
-		if hasEdge[a*10000+b] {
+		if hasEdge[a*1000000+b] {
 			continue
 		}
-		hasEdge[a*10000+b] = true
-		hasEdge[b*10000+a] = true
+		hasEdge[a*1000000+b] = true
+		hasEdge[b*1000000+a] = true
 		g.AddEdge(a, b, c)
 		g.AddEdge(b, a, d)
 	}
 
 	tryPath := make([][]int64, 0)
+	for i := 0; i < tryCount; i++ {
+		a := rand.Intn(vertexCount)
+		b := rand.Intn(vertexCount)
+		for a == b {
+			a = rand.Intn(vertexCount)
+			b = rand.Intn(vertexCount)
+		}
+		tryPath = append(tryPath, []int64{int64(a), int64(b)})
+	}
+
+	ComputeContractions(&g)
+	ComputeTNR(&g, tnrCount)
+	TestDijkstra(&g, tryPath)
+	TestCH(&g, tryPath)
+	TestTNR(&g, tryPath)
+}
+
+func TestRealWorldRoadMap() {
+	vertexCount := -1
+	edgeCount := -1
+	tnrCount := 1000
+	g := Graph{}
+
+	file, err := os.Open(os.Args[1])
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if line[0] == '#' {
+			continue
+		}
+		s := strings.Split(line, " ")
+		if len(s) == 3 {
+			id, _ := strconv.Atoi(s[0])
+			g.AddVertex(int64(id))
+		}
+		if len(s) == 6 {
+			source, _ := strconv.Atoi(s[0])
+			target, _ := strconv.Atoi(s[1])
+			length, _ := strconv.ParseFloat(s[2], 64)
+			g.AddEdge(int64(source), int64(target), length)
+
+			if s[5] == "1" {
+				g.AddEdge(int64(target), int64(source), length)
+			}
+		}
+		if vertexCount == -1 {
+			i, _ := strconv.Atoi(line)
+			vertexCount = i
+			continue
+		}
+		if edgeCount == -1 {
+			i, _ := strconv.Atoi(line)
+			edgeCount = i
+			continue
+		}
+	}
+
+	fmt.Printf("vertexCount: %d\n", vertexCount)
+	fmt.Printf("edgeCount: %d\n", edgeCount)
+
+	if err := scanner.Err(); err != nil {
+		log.Fatal(err)
+	}
+
+	tryPath := make([][]int64, 0)
+	tryCount := 1000
 	for i := 0; i < tryCount; i++ {
 		a := rand.Intn(vertexCount)
 		b := rand.Intn(vertexCount)
