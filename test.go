@@ -192,10 +192,10 @@ func Benchmark() {
 	g := Graph{}
 	_ = g
 
-	vertexCount := 100000
-	edgeCount := 150000
+	vertexCount := 3000
+	edgeCount := 5000
 	tryCount := 3000
-	tnrCount := 500
+	tnrCount := 50
 	for i := 0; i < vertexCount; i++ {
 		g.AddVertex(int64(i))
 	}

@@ -126,11 +126,9 @@ func (graph *Graph) ComputeLocalFilter() {
 	for v := 0; v < len(graph.vertices); v++ {
 		graph.vertices[v].forwardSearchSpace = nil
 		graph.vertices[v].forwardAccessNodeDistance = nil
-		graph.vertices[v].forwardAccessNodePath = nil
 		graph.vertices[v].forwardTNRed = false
 		graph.vertices[v].backwardSearchSpace = nil
 		graph.vertices[v].backwardAccessNodeDistance = nil
-		graph.vertices[v].backwardAccessNodePath = nil
 		graph.vertices[v].backwardTNRed = false
 
 		heap.Push(contractionMaxHeap, graph.vertices[v])
@@ -142,7 +140,6 @@ func (graph *Graph) ComputeLocalFilter() {
 			//fmt.Printf("forward TNR vertex %d\n", sourceVertex.id)
 			sourceVertex.forwardSearchSpace = make(map[int64]bool)
 			sourceVertex.forwardAccessNodeDistance = make(map[int64]float64)
-			sourceVertex.forwardAccessNodePath = make(map[int64][]int64)
 
 			// find access node
 			searchHeap := &forwardSearchHeap{}
@@ -198,7 +195,7 @@ func (graph *Graph) ComputeLocalFilter() {
 			}
 
 			for k := range sourceVertex.forwardAccessNodeDistance {
-				sourceVertex.forwardAccessNodeDistance[k], sourceVertex.forwardAccessNodePath[k] = graph.ShortestPathWithoutTNR(sourceVertex.name, graph.vertices[k].name)
+				sourceVertex.forwardAccessNodeDistance[k], _ = graph.ShortestPathWithoutTNR(sourceVertex.name, graph.vertices[k].name)
 			}
 
 			// delete invalid access node
@@ -215,7 +212,6 @@ func (graph *Graph) ComputeLocalFilter() {
 			}
 			for k := range accessNodeMask {
 				delete(sourceVertex.forwardAccessNodeDistance, k)
-				delete(sourceVertex.forwardAccessNodePath, k)
 			}
 			sourceVertex.forwardTNRed = true
 		}
@@ -224,7 +220,6 @@ func (graph *Graph) ComputeLocalFilter() {
 			//fmt.Printf("backward TNR vertex %d\n", sourceVertex.id)
 			sourceVertex.backwardSearchSpace = make(map[int64]bool)
 			sourceVertex.backwardAccessNodeDistance = make(map[int64]float64)
-			sourceVertex.backwardAccessNodePath = make(map[int64][]int64)
 
 			// find access node
 			searchHeap := &backwardSearchHeap{}
@@ -279,7 +274,7 @@ func (graph *Graph) ComputeLocalFilter() {
 				}
 			}
 			for k := range sourceVertex.backwardAccessNodeDistance {
-				sourceVertex.backwardAccessNodeDistance[k], sourceVertex.backwardAccessNodePath[k] = graph.ShortestPathWithoutTNR(graph.vertices[k].name, sourceVertex.name)
+				sourceVertex.backwardAccessNodeDistance[k], _ = graph.ShortestPathWithoutTNR(graph.vertices[k].name, sourceVertex.name)
 			}
 
 			// delete invalid access node
@@ -296,7 +291,6 @@ func (graph *Graph) ComputeLocalFilter() {
 			}
 			for k := range accessNodeMask {
 				delete(sourceVertex.backwardAccessNodeDistance, k)
-				delete(sourceVertex.backwardAccessNodePath, k)
 			}
 		}
 		sourceVertex.backwardTNRed = true

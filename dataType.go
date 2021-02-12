@@ -22,9 +22,6 @@ type Vertex struct {
 	forwardAccessNodeDistance  map[int64]float64
 	backwardAccessNodeDistance map[int64]float64
 
-	forwardAccessNodePath  map[int64][]int64
-	backwardAccessNodePath map[int64][]int64
-
 	forwardTNRed  bool
 	backwardTNRed bool
 }

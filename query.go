@@ -230,8 +230,8 @@ func (graph *Graph) ShortestPathWithTNR(source int64, target int64) (float64, []
 		return -math.MaxFloat64, nil
 	}
 
-	pathFromSource := sourceVertex.forwardAccessNodePath[bestSourceAccessNode]
-	pathToTarget := targetVertex.backwardAccessNodePath[bestTargetAccessNode]
+	_, pathFromSource := graph.ShortestPathWithoutTNR(sourceVertex.name, graph.vertices[bestSourceAccessNode].name)
+	_, pathToTarget := graph.ShortestPathWithoutTNR(graph.vertices[bestTargetAccessNode].name, targetVertex.name)
 	pathBetweenAccessNodes := graph.tnrPath[bestSourceAccessNode][bestTargetAccessNode]
 
 	bestPath = []int64{}
