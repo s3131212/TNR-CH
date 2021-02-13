@@ -206,11 +206,10 @@ func (graph *Graph) ShortestPathWithTNR(source int64, target int64) (float64, []
 	}
 	//fmt.Println("use TNR")
 
-	// compute distance and path
+	// Find the access node with shortest distance
 	bestDistance := math.MaxFloat64
 	var bestSourceAccessNode int64
 	var bestTargetAccessNode int64
-	bestPath := []int64{}
 
 	for k1, d1 := range sourceVertex.forwardAccessNodeDistance {
 		for k2, d2 := range targetVertex.backwardAccessNodeDistance {
@@ -230,11 +229,92 @@ func (graph *Graph) ShortestPathWithTNR(source int64, target int64) (float64, []
 		return -math.MaxFloat64, nil
 	}
 
-	_, pathFromSource := graph.ShortestPathWithoutTNR(sourceVertex.name, graph.vertices[bestSourceAccessNode].name)
-	_, pathToTarget := graph.ShortestPathWithoutTNR(graph.vertices[bestTargetAccessNode].name, targetVertex.name)
+	// retrieve the path
+	forwardDistance := make([]float64, len(graph.vertices), len(graph.vertices))
+	backwardDistance := make([]float64, len(graph.vertices), len(graph.vertices))
+	for i := 0; i < len(graph.vertices); i++ {
+		forwardDistance[i] = math.MaxFloat64
+		backwardDistance[i] = math.MaxFloat64
+	}
+	forwardDistance[sourceVertex.id] = 0
+	backwardDistance[targetVertex.id] = 0
+
+	forwardSearchHeap := &forwardSearchHeap{}
+	heap.Init(forwardSearchHeap)
+	heap.Push(forwardSearchHeap, &QueryVertex{
+		id:               sourceVertex.id,
+		forwardDistance:  0,
+		backwardDistance: 0,
+	})
+	forwardBacktrace := make(map[int64]int64)
+
+	for forwardSearchHeap.Len() != 0 {
+		queryVertex := heap.Pop(forwardSearchHeap).(*QueryVertex)
+
+		// sourceVertex.forwardAccessNodeDistance[bestSourceAccessNode]
+		if queryVertex.forwardDistance <= math.MaxFloat64 {
+			if queryVertex.id == bestSourceAccessNode {
+				break
+			}
+
+			// relax
+			for i := 0; i < len(graph.vertices[queryVertex.id].outwardEdges); i++ {
+				outEdge := graph.vertices[queryVertex.id].outwardEdges[i]
+				if graph.vertices[queryVertex.id].contractionOrder < outEdge.to.contractionOrder {
+					if forwardDistance[outEdge.to.id] > forwardDistance[queryVertex.id]+outEdge.weight {
+						forwardDistance[outEdge.to.id] = forwardDistance[queryVertex.id] + outEdge.weight
+						forwardBacktrace[outEdge.to.id] = queryVertex.id
+						heap.Push(forwardSearchHeap, &QueryVertex{
+							id:               outEdge.to.id,
+							forwardDistance:  forwardDistance[queryVertex.id] + outEdge.weight,
+							backwardDistance: 0,
+						})
+					}
+				}
+			}
+		}
+	}
+
+	backwardSearchHeap := &backwardSearchHeap{}
+	heap.Init(backwardSearchHeap)
+	heap.Push(backwardSearchHeap, &QueryVertex{
+		id:               targetVertex.id,
+		forwardDistance:  0,
+		backwardDistance: 0,
+	})
+	backwardBacktrace := make(map[int64]int64)
+
+	for backwardSearchHeap.Len() != 0 {
+		queryVertex := heap.Pop(backwardSearchHeap).(*QueryVertex)
+
+		if queryVertex.backwardDistance <= targetVertex.backwardAccessNodeDistance[bestTargetAccessNode] {
+			if queryVertex.id == bestTargetAccessNode {
+				break
+			}
+
+			// relax
+			for i := 0; i < len(graph.vertices[queryVertex.id].inwardEdges); i++ {
+				inEdge := graph.vertices[queryVertex.id].inwardEdges[i]
+				if graph.vertices[queryVertex.id].contractionOrder < inEdge.from.contractionOrder {
+					if backwardDistance[inEdge.from.id] > backwardDistance[queryVertex.id]+inEdge.weight {
+						backwardDistance[inEdge.from.id] = backwardDistance[queryVertex.id] + inEdge.weight
+						backwardBacktrace[inEdge.from.id] = queryVertex.id
+						heap.Push(backwardSearchHeap, &QueryVertex{
+							id:               inEdge.from.id,
+							forwardDistance:  0,
+							backwardDistance: backwardDistance[queryVertex.id] + inEdge.weight,
+						})
+					}
+				}
+			}
+		}
+	}
+
+	pathFromSource := graph.RetrievePath(forwardBacktrace, nil, bestSourceAccessNode)
+	pathToTarget := graph.RetrievePath(nil, backwardBacktrace, bestTargetAccessNode)
 	pathBetweenAccessNodes := graph.tnrPath[bestSourceAccessNode][bestTargetAccessNode]
 
-	bestPath = []int64{}
+	bestPath := []int64{}
 	bestPath = append(bestPath, pathFromSource[:len(pathFromSource)-1]...)
 	if bestSourceAccessNode != bestTargetAccessNode && len(pathBetweenAccessNodes) > 1 {
 		bestPath = append(bestPath, pathBetweenAccessNodes[:len(pathBetweenAccessNodes)-1]...)
