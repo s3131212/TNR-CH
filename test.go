@@ -40,9 +40,9 @@ func TestCorrectness() {
 	g := Graph{}
 	_ = g
 
-	vertexCount := 100
-	edgeCount := 200
-	tnrCount := 10
+	vertexCount := 10
+	edgeCount := 20
+	tnrCount := 3
 	for i := 0; i < vertexCount; i++ {
 		g.AddVertex(int64(i))
 		codeList = append(codeList, fmt.Sprintf("g.AddVertex(int64(%d))", i))
@@ -98,36 +98,20 @@ func TestCorrectness() {
 
 			d1, p1 := g.ShortestPathWithoutTNR(int64(i), int64(j))
 			d2, p2 := g.ShortestPath(int64(i), int64(j))
-			d := g.Dijkstra(int64(i), int64(j))
-			d_ := d
-			// check if Dijkstra is wrong :(
-			if d1 < d || d2 < d {
-				d = 0
-				for k := 0; k < len(p1)-1; k++ {
-					for m := 0; m < len(g.vertices[g.mapping[p1[k]]].outwardEdges); m++ {
-						if g.vertices[g.mapping[p1[k]]].outwardEdges[m].isShortcut {
-							continue
-						}
-						if g.vertices[g.mapping[p1[k]]].outwardEdges[m].to.id == g.mapping[p1[k+1]] {
-							d += g.vertices[g.mapping[p1[k]]].outwardEdges[m].weight
-							break
-						}
-					}
-				}
-			}
+			d, p := g.Dijkstra(int64(i), int64(j))
 
 			if d != d1 {
 				fmt.Printf("\n")
 				fmt.Println("==================================================error==================================================")
-				fmt.Printf("%d to %d: ShortestPathWithoutTNR wrong, it gives %f but the asnwer is %f\n", i, j, d1, d_)
-				fmt.Printf("path: %v\n", p1)
+				fmt.Printf("%d to %d: ShortestPathWithoutTNR wrong, it gives %f but the answer is %f\n", i, j, d1, d)
+				fmt.Printf("ShortestPathWithoutTNR path: %v, Dijkstra path: %v\n", p1, p)
 				hasWrong = true
 			}
 			if d != d2 {
 				fmt.Printf("\n")
 				fmt.Println("==================================================error==================================================")
-				fmt.Printf("%d to %d: ShortestPath wrong, it gives %f but the asnwer is %f\n", i, j, d2, d_)
-				fmt.Printf("path: %v\n", p1)
+				fmt.Printf("%d to %d: ShortestPath wrong, it gives %f but the answer is %f\n", i, j, d2, d)
+				fmt.Printf("ShortestPath path: %v, Dijkstra path: %v\n", p1, p)
 				hasWrong = true
 			}
 			if !reflect.DeepEqual(p1, p2) {
@@ -167,7 +151,46 @@ func TestCorrectness() {
 				fmt.Printf("%d to %d: path different\n", i, j)
 				fmt.Printf("ShortestPathWithoutTNR: %v, ShortestPath: %v\n", p1, p2)
 				hasWrong = true
-			} else if d != -math.MaxFloat64 {
+			}
+
+			if !reflect.DeepEqual(p, p1) {
+				d_ := float64(0)
+				for k := 0; k < len(p)-1; k++ {
+					for m := 0; m < len(g.vertices[g.mapping[p[k]]].outwardEdges); m++ {
+						if g.vertices[g.mapping[p[k]]].outwardEdges[m].isShortcut {
+							continue
+						}
+						if g.vertices[g.mapping[p[k]]].outwardEdges[m].to.id == g.mapping[p[k+1]] {
+							d_ += g.vertices[g.mapping[p[k]]].outwardEdges[m].weight
+							break
+						}
+					}
+				}
+
+				d1_ := float64(0)
+				for k := 0; k < len(p1)-1; k++ {
+					for m := 0; m < len(g.vertices[g.mapping[p1[k]]].outwardEdges); m++ {
+						if g.vertices[g.mapping[p1[k]]].outwardEdges[m].isShortcut {
+							continue
+						}
+						if g.vertices[g.mapping[p1[k]]].outwardEdges[m].to.id == g.mapping[p1[k+1]] {
+							d1_ += g.vertices[g.mapping[p1[k]]].outwardEdges[m].weight
+							break
+						}
+					}
+				}
+
+				if d_ == d1_ {
+					continue
+				}
+
+				hasWrong = true
+
+				fmt.Printf("%d to %d: path different\n", i, j)
+				fmt.Printf("ShortestPathWithoutTNR: %f, path: %v\nDijkstra: %f, path: %v\n", d1_, p1, d_, p)
+			}
+
+			if d != -math.MaxFloat64 {
 				// fmt.Printf("%d to %d length: %f, path: %v\n", i, j, d1, p1)
 			}
 		}
@@ -192,8 +215,8 @@ func Benchmark() {
 	g := Graph{}
 	_ = g
 
-	vertexCount := 3000
-	edgeCount := 5000
+	vertexCount := 5000
+	edgeCount := 7000
 	tryCount := 3000
 	tnrCount := 50
 	for i := 0; i < vertexCount; i++ {
@@ -331,7 +354,7 @@ func elapsed(what string) func() {
 func TestDijkstra(g *Graph, tryPath [][]int64) {
 	defer elapsed("Query using Dijkstra")()
 	for i := 0; i < len(tryPath); i++ {
-		_ = g.Dijkstra(tryPath[i][0], tryPath[i][1])
+		_, _ = g.Dijkstra(tryPath[i][0], tryPath[i][1])
 	}
 }
 

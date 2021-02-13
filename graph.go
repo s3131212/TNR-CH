@@ -2,6 +2,7 @@ package main
 
 import (
 	"container/heap"
+	"container/list"
 	"math"
 )
 
@@ -62,40 +63,74 @@ func NewDistance() *Distance {
 }
 
 // Dijkstra Dijkstra's algorithm
-func (graph *Graph) Dijkstra(from int64, to int64) float64 {
+func (graph *Graph) Dijkstra(from int64, to int64) (float64, []int64) {
 	fromVertex := graph.vertices[graph.mapping[from]]
 	toVertex := graph.vertices[graph.mapping[to]]
 
+	distance := make([]float64, len(graph.vertices), len(graph.vertices))
 	for i := 0; i < len(graph.vertices); i++ {
-		graph.vertices[i].distance.distance = math.MaxFloat64
+		distance[i] = math.MaxFloat64
 	}
 
-	distanceHeap := &distanceHeap{}
-	visited := make(map[int64]bool)
-	fromVertex.distance.distance = 0
+	distanceHeap := &forwardSearchHeap{}
+	parent := make(map[int64]int64)
+
+	distance[fromVertex.id] = 0
+
 	heap.Init(distanceHeap)
-	heap.Push(distanceHeap, fromVertex)
+	heap.Push(distanceHeap, &QueryVertex{
+		id:               fromVertex.id,
+		forwardDistance:  0,
+		backwardDistance: 0,
+	})
 
 	for distanceHeap.Len() != 0 {
-		vertex := heap.Pop(distanceHeap).(*Vertex)
+		queryVertex := heap.Pop(distanceHeap).(*QueryVertex)
 
-		if visited[vertex.id] {
+		if distance[queryVertex.id] < queryVertex.forwardDistance {
 			continue
 		}
-		visited[vertex.id] = true
 
-		for i := 0; i < len(vertex.outwardEdges); i++ {
-			if vertex.outwardEdges[i].isShortcut {
+		if queryVertex.id == toVertex.id {
+			break
+		}
+
+		for i := 0; i < len(graph.vertices[queryVertex.id].outwardEdges); i++ {
+			outEdge := graph.vertices[queryVertex.id].outwardEdges[i]
+			if outEdge.isShortcut {
 				continue
 			}
-			if vertex.distance.distance+vertex.outwardEdges[i].weight < vertex.outwardEdges[i].to.distance.distance {
-				vertex.outwardEdges[i].to.distance.distance = vertex.distance.distance + vertex.outwardEdges[i].weight
-				heap.Push(distanceHeap, vertex.outwardEdges[i].to)
+			if distance[queryVertex.id]+outEdge.weight < distance[outEdge.to.id] {
+				distance[outEdge.to.id] = distance[queryVertex.id] + outEdge.weight
+				parent[outEdge.to.id] = queryVertex.id
+				heap.Push(distanceHeap, &QueryVertex{
+					id:               outEdge.to.id,
+					forwardDistance:  distance[outEdge.to.id],
+					backwardDistance: 0,
+				})
 			}
 		}
 	}
-	if toVertex.distance.distance == math.MaxFloat64 {
-		return -math.MaxFloat64
+	if distance[toVertex.id] == math.MaxFloat64 {
+		return -math.MaxFloat64, nil
 	}
-	return toVertex.distance.distance
+
+	pathList := list.New()
+	v := to
+	ok := false
+	pathList.PushFront(v)
+	for {
+		if v, ok = parent[v]; ok {
+			pathList.PushFront(v)
+		} else {
+			break
+		}
+	}
+	// list to slice
+	var path []int64
+	for e := pathList.Front(); e != nil; e = e.Next() {
+		path = append(path, graph.vertices[e.Value.(int64)].name)
+	}
+
+	return distance[toVertex.id], path
 }
