@@ -312,12 +312,18 @@ func (graph *Graph) ShortestPathWithTNR(source int64, target int64) (float64, []
 
 	pathFromSource := graph.RetrievePath(forwardBacktrace, nil, bestSourceAccessNode)
 	pathToTarget := graph.RetrievePath(nil, backwardBacktrace, bestTargetAccessNode)
-	pathBetweenAccessNodes := graph.tnrPath[bestSourceAccessNode][bestTargetAccessNode]
+
+	pathBetweenAccessNodes := []int64{graph.vertices[bestSourceAccessNode].name}
+	currentNode := graph.vertices[bestSourceAccessNode]
+	for currentNode.transitPath[graph.vertices[bestTargetAccessNode].id] != nil {
+		pathBetweenAccessNodes = append(pathBetweenAccessNodes, currentNode.name)
+		currentNode = currentNode.transitPath[graph.vertices[bestTargetAccessNode].id]
+	}
 
 	bestPath := []int64{}
 	bestPath = append(bestPath, pathFromSource[:len(pathFromSource)-1]...)
 	if bestSourceAccessNode != bestTargetAccessNode && len(pathBetweenAccessNodes) > 1 {
-		bestPath = append(bestPath, pathBetweenAccessNodes[:len(pathBetweenAccessNodes)-1]...)
+		bestPath = append(bestPath, pathBetweenAccessNodes...)
 	}
 	bestPath = append(bestPath, pathToTarget...)
 

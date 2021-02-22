@@ -39,6 +39,7 @@ func (graph *Graph) SelectTransitNodes(transitCnt int) {
 			graph.transitNodes = append(graph.transitNodes, graph.vertices[i])
 			// fmt.Printf("select transit %d\n", graph.vertices[i].id)
 		}
+		graph.vertices[i].transitPath = make(map[int64]*Vertex)
 	}
 }
 
@@ -48,29 +49,28 @@ func (graph *Graph) ComputeDistanceTable(transitCnt int) {
 	if graph.tnrDistance == nil {
 		graph.tnrDistance = make(map[int64]map[int64]float64)
 	}
-	if graph.tnrPath == nil {
-		graph.tnrPath = make(map[int64]map[int64][]int64)
-	}
 
 	for i := 0; i < transitCnt; i++ {
 		for j := 0; j < transitCnt; j++ {
 			if _, ok := graph.tnrDistance[graph.transitNodes[i].id]; !ok {
 				graph.tnrDistance[graph.transitNodes[i].id] = make(map[int64]float64)
 			}
-			if _, ok := graph.tnrPath[graph.transitNodes[i].id]; !ok {
-				graph.tnrPath[graph.transitNodes[i].id] = make(map[int64][]int64)
-			}
 
 			if i == j {
 				graph.tnrDistance[graph.transitNodes[i].id][graph.transitNodes[j].id] = 0
-				graph.tnrPath[graph.transitNodes[i].id][graph.transitNodes[j].id] = []int64{}
 				continue
 			}
 
 			distance, path := graph.ShortestPathWithoutTNR(graph.transitNodes[i].name, graph.transitNodes[j].name)
 
 			graph.tnrDistance[graph.transitNodes[i].id][graph.transitNodes[j].id] = distance
-			graph.tnrPath[graph.transitNodes[i].id][graph.transitNodes[j].id] = path
+
+			for k := 0; k < len(path)-1; k++ {
+				if _, ok := graph.vertices[graph.mapping[path[k]]].transitPath[graph.transitNodes[j].id]; ok {
+					break
+				}
+				graph.vertices[graph.mapping[path[k]]].transitPath[graph.transitNodes[j].id] = graph.vertices[graph.mapping[path[k+1]]]
+			}
 
 			//fmt.Printf("between transit nodes %d and %d: %f, %v\n", graph.transitNodes[i].id, graph.transitNodes[j].id, distance, path)
 		}
