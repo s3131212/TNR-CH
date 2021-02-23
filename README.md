@@ -1,9 +1,8 @@
 # TNR-CH
-Implementation of Transit Node Routing + Contraction Hierarchies, inspired by [Transit Node Routing Reconsidered](https://arxiv.org/abs/1302.5611).
+Implementation of Transit Node Routing + Contraction Hierarchies, inspired by [Transit Node Routing Reconsidered](https://arxiv.org/abs/1302.5611). This implementation includes Contraction Hierarchies, transit node selection, and Search Space Based Locality Filter, and Graph Voronoi Label Compression.
 
 ## Usage
-
-Let the code speaks.
+Let the code speak.
 ```go
 func main() {
     g := Graph{}
@@ -49,6 +48,7 @@ MIT License
 
 ## TODO
 1. The TNR Computation can be faster since the method now is quite naive and it does many redundant calculation.
-2. Memory efficiency
-3. Change `int64` to `int`
-4. `go benchmark`, currently you can call `ComparePerformace` to do the benchmark.
+2. Memory efficiency.
+3. Change `int64` to `int`.
+4. Import and export computed graph.
+5. `go benchmark`, currently you can call `ComparePerformace` to do the benchmark.
