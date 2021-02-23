@@ -9,6 +9,8 @@ func main() {
     g.AddVertex(int64(0))
     g.AddVertex(int64(1))
     g.AddVertex(int64(2))
+    g.AddVertex(int64(3))
+    g.AddVertex(int64(4))
 
     g.AddEdge(int64(0), int64(1)) // Note that AddEdge only add an uni-directional edge
     g.AddEdge(int64(1), int64(0)) // If one needs bi-directional edges, simply add another direction
