@@ -112,11 +112,6 @@ func (graph *Graph) ComputeVoronoiRegion() {
 			}
 		}
 	}
-	/*
-		for i := 0; i < len(graph.vertices); i++ {
-			fmt.Printf("vertex %d is assigned to voronoi region %d\n", graph.vertices[i].id, graph.vertices[i].voronoiRegionID)
-		}
-	*/
 }
 
 // ComputeLocalFilter Calculate the local filter (access nodes + sub-transit-node sets)
